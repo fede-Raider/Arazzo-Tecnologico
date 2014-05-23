@@ -1,4 +1,7 @@
 
+//Arazzo Tecnologico 
+// Giontoli, Ciardi, Tommasi, Paolieri
+
 #include <Servo.h>
 Servo SG;
 Servo DS;
