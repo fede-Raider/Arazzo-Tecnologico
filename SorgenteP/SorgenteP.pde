@@ -1,222 +1,180 @@
 
+
 import processing.serial.*;
-import hypermedia.video.*;
+import gab.opencv.*;
+import processing.video.*;
 import java.awt.*;
 
-
+Capture video;
 OpenCV opencv;
 Serial port;  
 
-boolean seen = false;
-boolean gone = false;
-
-int milliGone = 0;
-int milliSeen = 0;
-
-// contrast/brightness values
-int contrast_value    = 0;
-int brightness_value  = 1;
+boolean agganciato = false;
 
 int sizeX = 640, sizeY = 480;
 
-int val;
+int actualTime;
+int prevTime;
 
 int dX,X=sizeX/2;
 int dY,Y=sizeY/2;
 
-void setup() {
+int centerSize = 60;
+int outerSize  = 120;
+
+float centerX = X/2;
+float centerY = Y/2;
+
+float centerLeft = centerX + centerSize/2;
+float centerRight = centerX - centerSize/2;
+float centerUp = centerY - centerSize/2;
+float centerDown = centerY + centerSize/2;
+
+float outerLeft = centerX + outerSize/2;
+float outerRight = centerX - outerSize/2;
+float outerUp = centerY - outerSize/2;
+float outerDown = centerY + outerSize/2;
+
+void setup() 
+{
   size( sizeX, sizeY );
   
-  println(Serial.list());
+  println(Capture  .list());
   println("totale porte " + Serial.list().length);
-
-// Per il rilevamento automatico dell'arduino (Vedi anche sorgente Arduino)
-  String portName = Serial.list()[findport(0)];  
+  
+  actualTime = millis();
+  prevTime = millis();
+ 
+  String portName = Serial.list()[9];
   port = new Serial(this, portName, 9600);
   port.write('@');
   port.clear();
   
-// Assegna la libreria OpenCV per il rilevamento facciale  
-  opencv = new OpenCV( this );
-  opencv.capture( width, height );                   
-  opencv.cascade( OpenCV.CASCADE_FRONTALFACE_ALT );  
+  String[] captureDevices = Capture.list();
   
-  // print usage
-  println( "\nDrag mouse on X-axis inside this sketch window to change contrast" );
-  println( "Drag mouse on Y-axis inside this sketch window to change brightness" );
+  video = new Capture(this, 640/2, 480/2,"Fotocamera USB");
+  opencv = new OpenCV(this, 640/2, 480/2);
+  opencv.loadCascade(OpenCV.CASCADE_FRONTALFACE);  
+  
+  //println(Capture.list());
+
+  video.start();
+
 }
 
-public void stop() {
-  opencv.stop();
-  super.stop();
+
+//Identifica la faccia più vicina calcolandone la grandezza
+int closestFace(Rectangle[] faces)
+{
+  int target = 0;
+  for(int i = 0; i < faces.length; i++)
+  {
+    if(faces[i].width * faces[i].height > faces[target].width * faces[target].height)
+      target = i;
+  }
+  return target;
+}
+    
+int Distance(Rectangle target)
+{
+  return X - target.height;
+}
+
+float DistanceM(int distance) //Approssimativo è dir poco
+{
+  return distance / 3.8;
 }
 
 void draw() {
-  background(100);
-  // grab a new frame and convert to gray
-  opencv.read();
-  //opencv.convert( GRAY );
-  opencv.contrast( contrast_value );
-  opencv.brightness( brightness_value );
+   scale(2);
+  opencv.loadImage(video);
 
-  // proceed detection
-  Rectangle[] faces = opencv.detect( 1.2, 4, OpenCV.HAAR_DO_CANNY_PRUNING, 40, 40 );
+  image(video, 0, 0 );
 
-  // display the image
-  image( opencv.image(), 0, 0 );
-
-  // draw face area(s)
   noFill();
-  stroke(55, 255, 33); 
+  strokeWeight(2);
+  Rectangle[] faces = opencv.detect();
+  
+  stroke(0,0,255);
+  rect(centerRight,centerUp,centerSize,centerSize);
+  point(centerX,centerY);
+  
+  stroke(255,0,0);
+  rect(outerRight,outerUp,outerSize,outerSize);
   
   if(faces.length > 0)
   {
-   for ( int i=0; i<faces.length; i++ ) {
+    int target = closestFace(faces);
+    stroke(0, 255, 0);
+     
     
-     if(!seen)
-     {
-       seen = true;
-     }
-     milliSeen = millis();
-
-     dX = faces[i].x + (faces[i].width / 2);
-     dY = faces[i].y+(faces[i].height/2);
-    
-     if(dX!=X){
-       if(dX<X) port.write('*');
-       else{ port.write('+');}
-       }
-      
-       if(dY!=Y){
-       if(dY<Y) port.write('#');
-       else{ port.write('@');}
-       }
-    
-     rect( faces[i].x, faces[i].y, faces[i].width, faces[i].height );
-   
-     text(".", (faces[i].x + (faces[i].width / 2)), (faces[i].y+(faces[i].height/2)));
-
-     text( "center:" + "\n" + "x: " + (faces[i].x + (faces[i].width / 2)), 20, 20);
-     text( "y: " + (faces[i].y+(faces[i].height/2)), 20, 50);
+    rect(faces[target].x,faces[target].y,faces[target].width,faces[target].height);
+    point(faces[target].x+faces[target].width/2, faces[target].y+faces[target].height/2);
+    line(faces[target].x+faces[target].width/2,faces[target].y+faces[target].height/2,
+         centerX,centerY);
+     
+    dX = faces[target].x+faces[target].width/2;
+    dY = faces[target].y+faces[target].height/2; 
     
     
-     text( "faces[i].x: " + faces[i].x, 110, 20);
-     text( "faces[i].width: " + faces[i].width, 110, 50);
-
-     text( "faces[i].y: " + faces[i].x, 110, 80);
-     text( "faces[i].height: " + faces[i].height, 110, 110);
-
-     text( "X", sizeX/2, sizeY/2);
-
-     text( "mouseX: " + mouseX, 20, 80);
-     text( "mousey: " + mouseY, 20, 110);
-   }
-  }
-  
-  else if(seen && (milliSeen + 2000) >= millis())
-  {
-    if(dX!=X)
+    if(!agganciato)
     {
-      if(dX<X)
-      { 
-        port.write('*');
-      }
+     actualTime = millis();
+     if(actualTime - prevTime > 100)
+     {
+      prevTime = actualTime;
+     if(dX > centerRight)
+      if(dX < outerRight)
+       port.write("*1");
       else
-      { 
-        port.write('+');}
-      }
-      if(dY!=Y)
-      {
-       if(dY<Y)
-       { 
-         port.write('#');
-       }
-       else
-       { 
-        port.write('@');
-       }
-      }
-  }
-   if(!gone && seen && (milliSeen + 2000) <= millis())
-  {
-    System.out.println("1");
-   gone = true;
-   seen = false;
-   milliGone = millis();
-  }  if (gone && !seen && (milliGone + 10000) < millis()){
-    System.out.println("2");
-    gone = false;
-    for(int k=0; k<100; k++){
-    port.write('s');
-    System.out.println("OK");
-   }
+       port.write("*2");
+       
+     if(dX < centerLeft)
+      if(dX > outerRight)
+       port.write("+1");
+      else
+       port.write("+2");
+       
+     if(dY > centerUp)
+      if(dY < outerUp)
+       port.write("@1");
+      else
+       port.write("@2");
+       
+     if(dY < centerDown)
+      if(dY > outerDown)
+       port.write("#1");
+      else
+       port.write("#2");
+     }
+     if(dY < centerUp && dY > centerDown 
+      && dX < centerRight && dX > centerLeft)
+       agganciato = true; 
+    
+    }
+    else
+    {
+      if(dY > outerUp || dY < outerDown
+       || dX > outerRight || dX < outerLeft)
+        agganciato = false;
+    }
   }
   
 }
 
-/**
- * Changes contrast/brigthness values
- */
-void mouseDragged() {
-  contrast_value   = (int) map( mouseX, 0, width, -128, 128 );
-  brightness_value = (int) map( mouseY, 0, width, -128, 128 );
-}
-
-int findport(int a) {  
-  Serial porttemp;
-  int nport=-1;
-  for (int i = a; i < Serial.list().length; i++) { 
-
-    println("Ciclo " + i +" "+  Serial.list()[i]);
-
-    try {
-      porttemp = new Serial (this, Serial.list()[i], 9600);
-    } 
-    catch(Exception e ) {
-      return findport(i+1);
-    }
-
-    porttemp.clear();
-    delay(50); // giusto il tempo per aprire la porta, altrimenti trova -1
-
-    if (porttemp.read() == 35) { // 35 -> #
-      nport=i;
-      println("Arduino trovato sulla porta " + nport + " in " + millis() + "ms");
-      i=Serial.list().length; //Per saltare alla fine del ciclo, odio i break.
-    } 
-
-    porttemp.clear();
-    porttemp.stop();
-    porttemp = null;
-  }
-  if (nport==-1) {
-    System.err.println("\n\tNessun Ardunino trovato");
-    System.exit(0);
-  }
-  return nport;
-}
 
 void keyPressed(){
-  if(key == 'w')  port.write('#');
-  if(key == 's')  port.write('@');
-  if(key == 'd')  port.write('+');
-  if(key == 'a')  port.write('*');
+  if(key == 'w')  port.write("#2");
+  if(key == 's')  port.write("@2");
+  if(key == 'd')  port.write("+2");
+  if(key == 'a')  port.write("*2");
+  if(key == 'e')  port.write("%2");
+  if(key == 'q')  port.write("$2");
   if(key == 'l')  port.write('s');
 }
 
-//Simple wire code for Arduino
-// Processing software doesn't works if this not run on Arduino board
 
-/*
-void setup() {
- Serial.begin(9600);  // Start serial communication at 9600 bps
- while(Serial.read()!=64){
- Serial.write("#");
- }
- Serial.write("\n\n Online..");
- }
- 
- void loop() {
- Serial.write('*');
- }
- */
+void captureEvent(Capture c) {
+  c.read();
+}
+
