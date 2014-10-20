@@ -19,6 +19,7 @@ float centerX=(sizeX/2)/scaleFactor, centerY=(sizeY/2)/scaleFactor; //Center
 
 //time
 int last_detection; 
+int time0 =0;
 
 //detection var
 boolean detected; 
@@ -33,8 +34,11 @@ public void setup() {
 
   println(Capture.list());
   println("totale porte " + Serial.list().length);
-
-  /* String portName = Serial.list()[findport(0)];
+  
+  // uncomment if you want to use arduino
+   /*
+   time0=millis();
+   String portName = Serial.list()[findport(0)];
    port = new Serial(this, portName, 9600);
    port.write("@");
    port.write("@");
@@ -93,7 +97,7 @@ public synchronized void draw() {
 
     dist = sqrt(pow((centerX-dx), 2) + pow((centerY-dy), 2));
     if (dist>InnerRadius) {
-      // servo(dx, dy, dist);
+      servo(dx, dy, dist);
     }
   } else {
     if (millis()-last_detection>60000*2) {
@@ -105,6 +109,7 @@ public synchronized void draw() {
 
 
 public void servo(float dx, float dy, double dist) {
+  try{
   if (dx>centerX) {
     if (dist<OuterRadius) {
       port.write("*");
@@ -137,6 +142,9 @@ public void servo(float dx, float dy, double dist) {
   } else {
     port.write("##");
     println("su2");
+  }}
+  catch(Exception e){
+    //System.err.println("Arduino non collegato");
   }
 }
 
@@ -163,7 +171,7 @@ void captureEvent(Capture c) {
 }
 
 int findport(int a) {
-  int time0=millis();
+  
   Serial porttemp;
   int nport = -1;
   for (int i = a; i < Serial.list ().length; i++) {
