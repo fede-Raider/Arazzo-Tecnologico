@@ -4,7 +4,7 @@ Servo SG;
 Servo DS;
 Servo TS;
 
-int Quantity = 2;
+int Quantity = 1;
 
 char toDo;
 
@@ -13,7 +13,7 @@ char toDo;
 // * -> destra
 // + -> sinistra
 // % -> su testa
-// $ -> giuù testa
+// $ -> giù testa
 void set()
 {
   SG.write(90);
@@ -22,7 +22,6 @@ void set()
   delay(3.11*180);
 }
 void setup() {
-  
   
   SG.attach(10); 
   DS.attach(9); 
@@ -35,19 +34,17 @@ void setup() {
   Serial.write("\n\n wOnline..");
   delay(1000);
 
-   
-  
   Serial.flush();
 }
 
 void loop() {
-
+  Serial.flush();
   if(Serial.available()>0){  
     
     toDo=Serial.read();  
-    
-    if(toDo=='@' || toDo=='#' || toDo=='*' || toDo=='+' || toDo=='%' || toDo=='$')
-     Quantity =  2;  
+    Serial.println(toDo);
+   // Serial.println(toDo);
+    if(toDo=='@' || toDo=='#' || toDo=='*' || toDo=='+' || toDo=='%' || toDo=='$'){
        
     if(toDo=='@'){
       SG.write(SG.read()+Quantity);   // 10 è puramente indicativo, non ho arduini per testare
@@ -71,6 +68,9 @@ void loop() {
       set();
     }
   }
+  }
+  
+  
   
   
 }
