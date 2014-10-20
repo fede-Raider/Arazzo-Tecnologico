@@ -1,203 +1,198 @@
 
+import gab.opencv.OpenCV;
+import java.awt.Rectangle;
+import processing.serial.Serial;
+import processing.video.Capture;
 
-import processing.serial.*;
-import gab.opencv.*;
-import processing.video.*;
-import java.awt.*;
+Capture video; //Streamer Video
+OpenCV opencv; //Face detection engine
+Serial port;   //Arduino serial port
 
-Capture video;
-OpenCV opencv;
-Serial port;  
+int sizeX = 640, sizeY = 480; //Panel
+float scaleFactor = 2; //scale Factor (ma dai?!)
+float OuterRadius = 80; //OuterZone;
+float InnerRadius = 30; //InnerZone
+float OuterDiameter = OuterRadius*2;
+float InnerDiameter = InnerRadius*2;
 
-boolean agganciato = false;
+float centerX=(sizeX/2)/scaleFactor, centerY=(sizeY/2)/scaleFactor; //Center
 
-int sizeX = 640, sizeY = 480;
+//time
+int last_detection; 
 
-int actualTime;
-int prevTime;
+//detection var
+boolean detected; 
+boolean detectedOld; // last detection status
+float dx, dy; //  face's dx and dy from center point
 
-int dX,X=sizeX/2;
-int dY,Y=sizeY/2;
+public static float dist = 0;
 
-int centerSize = 40;
-int outerSize  = 80;
 
-float centerX = X/2;
-float centerY = Y/2;
+public void setup() {
+  size(sizeX, sizeY);
 
-float centerLeft = centerX + centerSize/2;
-float centerRight = centerX - centerSize/2;
-float centerUp = centerY - centerSize/2;
-float centerDown = centerY + centerSize/2;
-
-float outerLeft = centerX + outerSize/2;
-float outerRight = centerX - outerSize/2;
-float outerUp = centerY - outerSize/2;
-float outerDown = centerY + outerSize/2;
-
-void setup() 
-{
-  size( sizeX, sizeY );
-  
-  println(Capture  .list());
+  println(Capture.list());
   println("totale porte " + Serial.list().length);
-  
-  actualTime = millis();
-  prevTime = millis();
- 
- 
-  //String portName = Serial.list()[findport(0)];
-  String portName = Serial.list()[7];
-  port = new Serial(this, portName, 9600);
-  port.write('@');
-  port.clear();
-  
+
+  /* String portName = Serial.list()[findport(0)];
+   port = new Serial(this, portName, 9600);
+   port.write("@");
+   port.write("@");
+   port.clear();
+   */
   String[] captureDevices = Capture.list();
-  
+
+  video = new Capture(this, 640 / 2, 480 / 2, "Videocamera HD FaceTime (integrata)");
   //video = new Capture(this, 640/2, 480/2,"Fotocamera USB");
-  video = new Capture(this, 640/2, 480/2,"USB2.0 PC CAMERA");
-  opencv = new OpenCV(this, 640/2, 480/2);
-  opencv.loadCascade(OpenCV.CASCADE_FRONTALFACE);  
-  
-  //println(Capture.list());
+  //video = new Capture(this, 640 / 2, 480 / 2, "USB2.0 PC CAMERA");
+  opencv = new OpenCV(this, 640 / 2, 480 / 2);
+  opencv.loadCascade(OpenCV.CASCADE_FRONTALFACE); //funziona solo così, prendelo pe' bono
 
   video.start();
-
 }
 
 //Identifica la faccia più vicina calcolandone la grandezza
-int closestFace(Rectangle[] faces){
+int closestFace(Rectangle[] faces) {
   int target = 0;
-  for(int i = 0; i < faces.length; i++){
-    if(faces[i].width * faces[i].height > faces[target].width * faces[target].height)
+  for (int i = 0; i < faces.length; i++) {
+    if (faces[i].width * faces[i].height > faces[target].width * faces[target].height) {
       target = i;
+    }
   }
   return target;
 }
-    
-int Distance(Rectangle target){
-  return X - target.height;
-}
 
-float DistanceM(int distance){
-  return distance / 3.8;
-}
-
-void draw() {
-  scale(2);
+public synchronized void draw() {
+  frameRate(30);
+  scale(scaleFactor);
   opencv.loadImage(video);
 
-  image(video, 0, 0 );
+  image(video, 0, 0);
 
   noFill();
   strokeWeight(2);
   Rectangle[] faces = opencv.detect();
-  
-  stroke(0,0,255);
-  rect(centerRight,centerUp,centerSize,centerSize);
-  point(centerX,centerY);
-  
-  stroke(255,0,0);
-  rect(outerRight,outerUp,outerSize,outerSize);
-  
-  if(faces.length > 0){
+
+  stroke(0, 0, 255);
+  ellipse(centerX, centerY, InnerDiameter, InnerDiameter);
+  point(centerX, centerY);
+
+  stroke(255, 0, 0);
+  ellipse(centerX, centerY, OuterDiameter, OuterDiameter);
+  if (faces.length > 0) {
+    last_detection=millis();
     int target = closestFace(faces);
     stroke(0, 255, 0);
-     
-    
-    rect(faces[target].x,faces[target].y,faces[target].width,faces[target].height);
-    point(faces[target].x+faces[target].width/2, faces[target].y+faces[target].height/2);
-    line(faces[target].x+faces[target].width/2,faces[target].y+faces[target].height/2,
-         centerX,centerY);
-     
-    dX = faces[target].x+faces[target].width/2;
-    dY = faces[target].y+faces[target].height/2; 
-    
-    
-    if(!agganciato){
-     actualTime = millis();
-     if(actualTime - prevTime > 100)
-     {
-      prevTime = actualTime;
-     if(dX > centerRight)
-      if(dX < outerRight)
-       port.write("*");
-      else
-       port.write("**");
-       
-     if(dX < centerLeft)
-      if(dX > outerRight)
-       port.write("+");
-      else
-       port.write("++");
-       
-     if(dY > centerUp)
-      if(dY < outerUp)
-       port.write("@");
-      else
-       port.write("@@");
-       
-     if(dY < centerDown)
-      if(dY > outerDown)
-       port.write("#");
-      else
-       port.write("##");
-     }
-    if(dY < centerUp && dY > centerDown 
-      && dX < centerRight && dX > centerLeft)
-       agganciato = true; 
-    
+
+    dx = faces[target].x + faces[target].width / 2;
+    dy = faces[target].y + faces[target].height / 2;
+
+    ellipse(dx, dy, faces[target].width, faces[target].height);
+    point(dx, dy);
+    line(dx, dy, centerX, centerY);
+
+    dist = sqrt(pow((centerX-dx), 2) + pow((centerY-dy), 2));
+    if (dist>InnerRadius) {
+      // servo(dx, dy, dist);
     }
-    else{
-      if(dY > centerUp || dY < centerDown
-       || dX > centerRight || dX < centerLeft)
-        agganciato = false;
+  } else {
+    if (millis()-last_detection>60000*2) {
+      println("dove sei?");
+      last_detection = millis();
     }
-  } 
+  }
 }
 
-void keyPressed(){
-  if(key == 'w')  port.write("#");
-  if(key == 's')  port.write("@");
-  if(key == 'd')  port.write("+");
-  if(key == 'a')  port.write("*");
-  if(key == 'e')  port.write("%");
-  if(key == 'q')  port.write("$");
-  if(key == 'l')  port.write('s');
+
+public void servo(float dx, float dy, double dist) {
+  if (dx>centerX) {
+    if (dist<OuterRadius) {
+      port.write("*");
+      println("sinistra");
+    } else {
+      port.write("**");
+      println("sinistra2");
+    }
+  } else {
+    if (dist<OuterRadius) {
+      port.write("+");
+      println("destra");
+    } else {
+      port.write("++");
+      println("destra2");
+    }
+  }
+
+  if (dy>centerY) {
+    if (dist<OuterRadius) {
+      port.write("@");
+      println("giù");
+    } else {
+      port.write("@@");
+      println("giù2");
+    }
+  } else if (dist<OuterRadius) {
+    port.write("#");
+    println("su");
+  } else {
+    port.write("##");
+    println("su2");
+  }
+}
+
+public void keyPressed() {
+  if (key == 'w') {
+    port.write("#");
+  } else if (key == 's') {
+    port.write("@");
+  } else if (key == 'd') {
+    port.write("+");
+  } else if (key == 'a') {
+    port.write("*");
+  } else if (key == 'e') {
+    port.write("%");
+  } else if (key == 'q') {
+    port.write("$");
+  } else if (key == 'l') {
+    port.write('s');
+  }
 }
 
 void captureEvent(Capture c) {
   c.read();
 }
 
-int findport(int a) {  
+int findport(int a) {
+  int time0=millis();
   Serial porttemp;
-  int nport=-1;
-  for (int i = a; i < Serial.list().length; i++) { 
+  int nport = -1;
+  for (int i = a; i < Serial.list ().length; i++) {
 
-    println("Ciclo " + i +" "+  Serial.list()[i]);
+    println("Ciclo " + i + " " + Serial.list()[i]);
 
     try {
-      porttemp = new Serial (this, Serial.list()[i], 9600);
+      porttemp = new Serial(this, Serial.list()[i], 9600);
     } 
-    catch(Exception e ) {
-      return findport(i+1);
+    catch (Exception e) {
+      return findport(i + 1);
     }
 
     porttemp.clear();
-    delay(50); // giusto il tempo per aprire la porta, altrimenti trova -1
-
-    if (porttemp.read() == 35) { // 35 -> #
-      nport=i;
-      println("Arduino trovato sulla porta " + nport + " in " + millis() + "ms");
-      i=Serial.list().length;
-    } 
+    delay(10); // giusto il tempo per aprire la porta, altrimenti trova -1
+    print(porttemp.read());
+    if (porttemp.available()>0) {
+      if (porttemp.read() == 35) { // 35 -> #
+        nport = i;
+        println("Arduino trovato sulla porta " + nport + " in " + (millis()-time0) + "ms");
+        i = Serial.list().length;
+      }
+    }
 
     porttemp.clear();
     porttemp.stop();
     porttemp = null;
   }
-  if (nport==-1) {
+  if (nport == -1) {
     System.err.println("\n\tNessun Ardunino trovato");
     System.exit(0);
   }

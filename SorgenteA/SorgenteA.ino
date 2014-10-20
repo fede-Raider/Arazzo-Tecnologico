@@ -22,18 +22,23 @@ void set()
   delay(3.11*180);
 }
 void setup() {
+
+  Serial.begin(9600);                    // Start serial communication at 9600 bps
   
+  while(Serial.read()!=“@“){
+    Serial.write(“#”);
+    delay(100);
+  }
+  Serial.write("\n\n wOnline..");
+  delay(1000);
+
   SG.attach(10); 
   DS.attach(9); 
   TS.attach(7);
 
   set();
   
-  Serial.begin(9600);                    // Start serial communication at 9600 bps
-
-  Serial.write("\n\n wOnline..");
-  delay(1000);
-
+  
   Serial.flush();
 }
 
